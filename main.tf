@@ -1,9 +1,8 @@
 #
 # Import standardization module
 #
-module "context" {
-  source    = "../tf-context"
-  providers = { aws = aws }
+module "std" {
+  source   = "github.com/clearscale/tf-standards?ref=v1.0.0"
 
   prefix   = var.prefix
   client   = var.client
@@ -12,7 +11,7 @@ module "context" {
   env      = var.env
   region   = var.region
   name     = var.name
-  function = (var.project_name == null) ? var.repo.name : var.project_name
+  function = local.cb_project_fx_name
 }
 
 resource "aws_codebuild_project" "this" {

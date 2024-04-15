@@ -17,8 +17,9 @@ locals {
     : local.envname
   )
 
-  cb_project_prefix = "${local.context.aws[0].prefix.dash.full.default.default}"
-  cb_project_name   = "${local.cb_project_prefix}-${local.context.aws[0].prefix.dash.function.default.lower}"
+  cb_project_fx_name = (var.project_name == null) ? var.repo.name : var.project_name
+  cb_project_prefix  = "${module.std.prefix}-${module.std.env}"
+  cb_project_name    = "${local.cb_project_prefix}-${local.cb_project_fx_name}"
 
   prefix_title = replace(title(
     replace("${local.prefix}.${local.account_name}.${local.region}.${local.env}", "-", " ")
@@ -63,9 +64,9 @@ locals {
   }
 
   # Get IAM role names from standardization module output
-  context         = jsondecode(jsonencode(module.context.accounts))
+  std             = jsondecode(jsonencode(module.std.names))
   iam_role_prefix = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/"
-  iam_role_raw    = local.context.aws[0].prefix.dot.full.function
+  iam_role_raw    = module.std.names.aws[var.account.name].title
   iam_role        = (startswith(local.iam_role_raw, local.iam_role_prefix)
     ? local.iam_role_raw
     : "${local.iam_role_prefix}${local.iam_role_raw}"

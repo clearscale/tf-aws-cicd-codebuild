@@ -2,8 +2,8 @@ locals {
   iam_stage_roles = (local.stages == null ? [] : flatten([[
     for stage in local.stages :
       flatten([[
-        "arn:aws:iam::${var.account.id}:role/${local.context.aws[0].prefix.dot.full.function}",
-        "arn:aws:iam::${var.account.id}:policy/${local.context.aws[0].prefix.dot.full.function}"
+        "arn:aws:iam::${var.account.id}:role/${module.std.names.aws[var.account.name].title}",
+        "arn:aws:iam::${var.account.id}:policy/${module.std.names.aws[var.account.name].title}"
       ], (var.iam_codepipeline != null)
         ? var.iam_codepipeline
         : []
@@ -13,7 +13,7 @@ locals {
 }
 
 resource "aws_iam_role" "this" {
-  name = local.context.aws[0].prefix.dot.full.function
+  name = module.std.names.aws[var.account.name].title
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
@@ -138,7 +138,7 @@ data "aws_iam_policy_document" "this" {
 }
 
 resource "aws_iam_policy" "this" {
-  name        = local.context.aws[0].prefix.dot.full.function
+  name        = module.std.names.aws[var.account.name].title
   description = "Default '${local.name}' CodeBuild policy for the '${local.project}' project."
   path        = "/"
   policy      = data.aws_iam_policy_document.this.json
