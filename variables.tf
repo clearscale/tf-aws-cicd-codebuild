@@ -6,31 +6,10 @@ locals {
   envname      = lower(trimspace(var.env))
   region       = lower(replace(replace(var.region, " ", "-"), "-", ""))
   name         = lower(replace(var.name, " ", "-"))
-  
-  prefix = (try(
-    trimspace(var.prefix),
-    "${local.client}-${local.project}")
-  )
 
-  env = (local.envname == "default" && terraform.workspace == "default"
-    ? "dev"
-    : local.envname
-  )
-
-  cb_project_prefix = "${local.context.aws[0].prefix.dash.full.default.default}"
-  cb_project_name   = "${local.cb_project_prefix}-${local.context.aws[0].prefix.dash.function.default.lower}"
-
-  prefix_title = replace(title(
-    replace("${local.prefix}.${local.account_name}.${local.region}.${local.env}", "-", " ")
-  ), " ", "")
-
-  prefix_iam = replace(title(
-    replace("${local.prefix_title}.CodeBuild.", "-", " ")
-  ), " ", "")
-
-  prefix_iam_stage = replace(title(
-    replace("${local.prefix_iam}${title(local.name)}", "-", " ")
-  ), " ", "")
+  cb_project_name = (lower(replace(replace(
+    module.std.names.aws[var.account.name].general,
+  "-", " "), " ", "-")))
 
   iam_service_role_policies = (var.iam_service_role_policies == null
     ? []
@@ -62,17 +41,17 @@ locals {
     )
   }
 
-  # Get IAM role names from standardization module output
-  context         = jsondecode(jsonencode(module.context.accounts))
+  # Get IAM role names and ARNs using the standardization module output
   iam_role_prefix = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/"
-  iam_role_raw    = local.context.aws[0].prefix.dot.full.function
+  iam_role_raw    = module.std.names.aws[var.account.name].title
   iam_role        = (startswith(local.iam_role_raw, local.iam_role_prefix)
     ? local.iam_role_raw
     : "${local.iam_role_prefix}${local.iam_role_raw}"
   )
 
-  # Set var.stages[x].action.configuration.ProjectName with var.stages[x].name if null or empty
-  stages = [for stage in var.stages : {
+  # Set var.stages[x].action.configuration.ProjectName with var.stages[x].name if null or empty.
+  # var.stages is only required if CodePipeline is being used with this Build Project.
+  stages = (var.stages == null ? null : [for stage in var.stages : {
     name = stage.name
     action = {
       name            = stage.action.name
@@ -89,7 +68,7 @@ locals {
       secrets  = stage.secrets
       logs     = stage.logs
     }
-  }]
+  }])
 }
 
 variable "prefix" {
@@ -139,13 +118,13 @@ variable "region" {
 
 variable "name" {
   type        = string
-  description = "(Optional). The name of the CodeBuild project."
+  description = "(Optional). The name of the CodeBuild project. Used to add additional context to dependency resources like IAM roles. Project name should be added to var.project_name."
   default     = "codebuild"
 }
 
 variable "project_name" {
   type        = string
-  description = "(Optional). The name of the CodeBuild project name. Defaults to var.repo.name."
+  description = "(Required). Unrelated to var.project and var.name. This represents the name of the CodeBuild Project."
   default     = null
 }
 
@@ -273,12 +252,12 @@ variable "iam_codepipeline" {
 }
 
 #
-# If using with CodePipeline, a list of all build stages.
+# If using with CodePipeline, a list of all build stages so IAM roles and policies and be generated.
 # Will skip "Source" stages if var.repo != null.
 # https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/codepipeline#stage
 #
 variable "stages" {
-  description = "(Required). List of stages for CodePipeline. configuration.ProjectName is required."
+  description = "(Required if CodePipeline is being used). List of stages that are being passed to CodePipeline (if used). This list will be used to generate the needed IAM resources. There is no dependency on CodePipeline and, when set, object values in each list item do not override any other input variable."
   default     = null
   type = list(object({
     name   = string

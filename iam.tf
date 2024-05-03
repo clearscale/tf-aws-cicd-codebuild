@@ -2,8 +2,8 @@ locals {
   iam_stage_roles = (local.stages == null ? [] : flatten([[
     for stage in local.stages :
       flatten([[
-        "arn:aws:iam::${var.account.id}:role/${local.context.aws[0].prefix.dot.full.function}",
-        "arn:aws:iam::${var.account.id}:policy/${local.context.aws[0].prefix.dot.full.function}"
+        "arn:aws:iam::${var.account.id}:role/${local.iam_role_raw}",
+        "arn:aws:iam::${var.account.id}:policy/${local.iam_role_raw}"
       ], (var.iam_codepipeline != null)
         ? var.iam_codepipeline
         : []
@@ -13,7 +13,7 @@ locals {
 }
 
 resource "aws_iam_role" "this" {
-  name = local.context.aws[0].prefix.dot.full.function
+  name = local.iam_role_raw
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
@@ -58,20 +58,24 @@ data "aws_iam_policy_document" "this" {
     ]
   }
 
-  statement {
-    sid       = "AllowInteractionBetweenCPStages"
-    effect    = "Allow"
-    actions = [
-      "iam:GetRole",
-      "iam:ListRolePolicies",
-      "iam:ListAttachedRolePolicies",
-      "iam:GetPolicy",
-      "iam:GetPolicyVersion",
-      "iam:DetachRolePolicy",
-      "iam:ListInstanceProfilesForRole",
-      "iam:ListPolicyVersions",
-    ]
-    resources = local.iam_stage_roles
+  dynamic "statement" {
+    for_each = local.stages != null ? [local.iam_stage_roles] : []
+
+    content {
+      sid       = "AllowInteractionBetweenCPStages"
+      effect    = "Allow"
+      actions   = [
+        "iam:GetRole",
+        "iam:ListRolePolicies",
+        "iam:ListAttachedRolePolicies",
+        "iam:GetPolicy",
+        "iam:GetPolicyVersion",
+        "iam:DetachRolePolicy",
+        "iam:ListInstanceProfilesForRole",
+        "iam:ListPolicyVersions",
+      ]
+      resources = statement.value
+    }
   }
 
   statement {
@@ -138,7 +142,7 @@ data "aws_iam_policy_document" "this" {
 }
 
 resource "aws_iam_policy" "this" {
-  name        = local.context.aws[0].prefix.dot.full.function
+  name        = local.iam_role_raw
   description = "Default '${local.name}' CodeBuild policy for the '${local.project}' project."
   path        = "/"
   policy      = data.aws_iam_policy_document.this.json
