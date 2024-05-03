@@ -61,7 +61,7 @@ locals {
 }
 
 module "codebuild" {
-  source    = "https://github.com/clearscale/tf-aws-cicd-codebuild.git?ref=v1.0.0"
+  source    = "github.com/clearscale/tf-aws-cicd-codebuild.git?ref=v1.0.0"
 
   account = {
     id = "*", name = local.account.name, provider = "aws", key = "current", region = local.region.name
